@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <!-- 基本網頁設定：字元編碼、手機版縮放、頁籤標題與 CSS 檔案。 -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>今晚吃什麼？64 強晚餐二選一</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="game-shell">
+        <!-- 頁首區：顯示遊戲名稱與簡短說明。 -->
+        <section class="hero">
+            <p class="eyebrow">Dinner Duel</p>
+            <h1>今晚吃什麼？</h1>
+            <p class="intro">從 64 個晚餐選項一路二選一，選到最後就是今晚的答案。</p>
+        </section>
+
+        <!-- 遊戲主區：包含目前回合、進度條、二選一卡片、結果與操作按鈕。 -->
+        <section class="game-panel" aria-live="polite">
+            <!-- 狀態列：由 app.js 即時更新目前是幾強，以及本輪第幾組。 -->
+            <div class="status-bar">
+                <div>
+                    <span class="label">目前回合</span>
+                    <strong id="roundLabel">64 強</strong>
+                </div>
+                <div>
+                    <span class="label">本輪進度</span>
+                    <strong id="matchLabel">第 1 組 / 32 組</strong>
+                </div>
+            </div>
+
+            <!-- 進度條：由 app.js 依照本輪已完成的組數調整寬度。 -->
+            <div class="progress-track" aria-hidden="true">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+
+            <!-- 二選一選項區：兩張卡片會被 app.js 填入食物圖片、名稱與分類。 -->
+            <div id="choiceArea" class="choice-grid">
+                <button class="choice-card" type="button" data-choice="0">
+                    <span class="image-wrap">
+                        <img class="food-image" alt="">
+                        <span class="food-emoji"></span>
+                    </span>
+                    <span class="food-name"></span>
+                    <span class="food-tag"></span>
+                </button>
+                <button class="choice-card" type="button" data-choice="1">
+                    <span class="image-wrap">
+                        <img class="food-image" alt="">
+                        <span class="food-emoji"></span>
+                    </span>
+                    <span class="food-name"></span>
+                    <span class="food-tag"></span>
+                </button>
+            </div>
+
+            <!-- 冠軍結果區：一開始隱藏，最後只剩一個選項時由 app.js 顯示。 -->
+            <div id="winnerArea" class="winner hidden">
+                <span class="winner-image-wrap">
+                    <img id="winnerImage" class="winner-image" alt="">
+                    <span id="winnerEmoji" class="winner-emoji"></span>
+                </span>
+                <p class="label">今晚就決定是</p>
+                <h2 id="winnerName"></h2>
+                <p id="winnerTag"></p>
+            </div>
+
+            <!-- 操作按鈕：上一步會回到前一次選擇，重新開始會重新洗牌。 -->
+            <div class="actions">
+                <button id="undoButton" class="ghost-button" type="button">上一步</button>
+                <button id="restartButton" class="primary-button" type="button">重新開始</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 晚餐選項資料：name 是名稱，tag 是分類，emoji 是預設圖示，image 可填自己的本機圖片路徑；留空時會由 app.js 產生固定圖卡。
+        window.DINNER_OPTIONS = [
+            { name: "牛肉麵", tag: "熱湯系", emoji: "🍜", image: "" },
+            { name: "滷肉飯", tag: "台式經典", emoji: "🍚", image: "" },
+            { name: "雞肉飯", tag: "台式經典", emoji: "🍗", image: "" },
+            { name: "排骨便當", tag: "便當系", emoji: "🍱", image: "" },
+            { name: "雞腿便當", tag: "便當系", emoji: "🍱", image: "" },
+            { name: "鹽酥雞", tag: "宵夜系", emoji: "🍗", image: "" },
+            { name: "臭豆腐", tag: "夜市系", emoji: "🥢", image: "" },
+            { name: "蚵仔煎", tag: "夜市系", emoji: "🍳", image: "" },
+            { name: "水餃", tag: "簡單飽", emoji: "🥟", image: "" },
+            { name: "鍋貼", tag: "簡單飽", emoji: "🥟", image: "" },
+            { name: "炒飯", tag: "快炒系", emoji: "🍛", image: "" },
+            { name: "炒麵", tag: "快炒系", emoji: "🍝", image: "" },
+            { name: "咖哩飯", tag: "濃郁系", emoji: "🍛", image: "" },
+            { name: "日式豬排飯", tag: "日式", emoji: "🍱", image: "" },
+            { name: "壽司", tag: "日式", emoji: "🍣", image: "" },
+            { name: "拉麵", tag: "日式", emoji: "🍜", image: "" },
+            { name: "烏龍麵", tag: "日式", emoji: "🍜", image: "" },
+            { name: "丼飯", tag: "日式", emoji: "🍚", image: "" },
+            { name: "韓式拌飯", tag: "韓式", emoji: "🥘", image: "" },
+            { name: "韓式炸雞", tag: "韓式", emoji: "🍗", image: "" },
+            { name: "部隊鍋", tag: "韓式", emoji: "🍲", image: "" },
+            { name: "泡菜鍋", tag: "韓式", emoji: "🍲", image: "" },
+            { name: "石頭火鍋", tag: "火鍋系", emoji: "🍲", image: "" },
+            { name: "麻辣鍋", tag: "火鍋系", emoji: "🌶️", image: "" },
+            { name: "涮涮鍋", tag: "火鍋系", emoji: "🍲", image: "" },
+            { name: "羊肉爐", tag: "暖身系", emoji: "🍲", image: "" },
+            { name: "薑母鴨", tag: "暖身系", emoji: "🦆", image: "" },
+            { name: "燒肉", tag: "聚餐系", emoji: "🥩", image: "" },
+            { name: "牛排", tag: "西式", emoji: "🥩", image: "" },
+            { name: "義大利麵", tag: "西式", emoji: "🍝", image: "" },
+            { name: "披薩", tag: "西式", emoji: "🍕", image: "" },
+            { name: "漢堡", tag: "西式", emoji: "🍔", image: "" },
+            { name: "炸雞", tag: "速食", emoji: "🍗", image: "" },
+            { name: "熱狗堡", tag: "速食", emoji: "🌭", image: "" },
+            { name: "墨西哥捲餅", tag: "異國", emoji: "🌯", image: "" },
+            { name: "塔可", tag: "異國", emoji: "🌮", image: "" },
+            { name: "越南河粉", tag: "東南亞", emoji: "🍜", image: "" },
+            { name: "打拋豬飯", tag: "泰式", emoji: "🌶️", image: "" },
+            { name: "綠咖哩", tag: "泰式", emoji: "🍛", image: "" },
+            { name: "海南雞飯", tag: "南洋", emoji: "🍚", image: "" },
+            { name: "肉骨茶", tag: "南洋", emoji: "🍲", image: "" },
+            { name: "沙威瑪", tag: "街頭小吃", emoji: "🥙", image: "" },
+            { name: "烤鴨飯", tag: "港式", emoji: "🍚", image: "" },
+            { name: "港式燒臘", tag: "港式", emoji: "🍱", image: "" },
+            { name: "粥", tag: "清爽系", emoji: "🥣", image: "" },
+            { name: "湯麵", tag: "熱湯系", emoji: "🍜", image: "" },
+            { name: "乾麵", tag: "麵食", emoji: "🍜", image: "" },
+            { name: "米粉湯", tag: "台式湯品", emoji: "🍜", image: "" },
+            { name: "鴨肉飯", tag: "台式經典", emoji: "🍚", image: "" },
+            { name: "虱目魚粥", tag: "台南感", emoji: "🥣", image: "" },
+            { name: "海鮮粥", tag: "海味", emoji: "🦐", image: "" },
+            { name: "烤魚", tag: "海味", emoji: "🐟", image: "" },
+            { name: "生魚片丼", tag: "日式", emoji: "🍣", image: "" },
+            { name: "關東煮", tag: "暖胃系", emoji: "🍢", image: "" },
+            { name: "鹽烤雞肉串", tag: "居酒屋", emoji: "🍢", image: "" },
+            { name: "蔬食便當", tag: "清爽系", emoji: "🥗", image: "" },
+            { name: "沙拉碗", tag: "清爽系", emoji: "🥗", image: "" },
+            { name: "地瓜餐盒", tag: "健康系", emoji: "🍠", image: "" },
+            { name: "蛋包飯", tag: "日式洋食", emoji: "🍳", image: "" },
+            { name: "焗烤飯", tag: "起司系", emoji: "🧀", image: "" },
+            { name: "鐵板麵", tag: "夜市系", emoji: "🍝", image: "" },
+            { name: "蔥油餅加蛋", tag: "小吃系", emoji: "🥞", image: "" },
+            { name: "蘿蔔糕", tag: "小吃系", emoji: "🥢", image: "" },
+            { name: "麻醬麵", tag: "麵食", emoji: "🍜", image: "" }
+        ];
+    </script>
+    <!-- 遊戲邏輯：洗牌、二選一、上一步、重新開始與畫面更新。 -->
+    <script src="app.js"></script>
+</body>
+</html>
