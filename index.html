@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+    <!-- 基本網頁設定：字元編碼、手機版縮放、頁籤標題與 CSS 檔案。 -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>今晚吃什麼？64 強晚餐二選一</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <main class="game-shell">
+        <!-- 頁首區：顯示遊戲名稱與簡短說明。 -->
+        <section class="hero">
+            <p class="eyebrow">Dinner Duel</p>
+            <h1>今晚吃什麼？</h1>
+            <p class="intro">從 64 個晚餐選項一路二選一，選到最後就是今晚的答案。</p>
+        </section>
+
+        <!-- 遊戲主區：包含目前回合、進度條、二選一卡片、結果與操作按鈕。 -->
+        <section class="game-panel" aria-live="polite">
+            <!-- 狀態列：由 app.js 即時更新目前是幾強，以及本輪第幾組。 -->
+            <div class="status-bar">
+                <div>
+                    <span class="label">目前回合</span>
+                    <strong id="roundLabel">64 強</strong>
+                </div>
+                <div>
+                    <span class="label">本輪進度</span>
+                    <strong id="matchLabel">第 1 組 / 32 組</strong>
+                </div>
+            </div>
+
+            <!-- 進度條：由 app.js 依照本輪已完成的組數調整寬度。 -->
+            <div class="progress-track" aria-hidden="true">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+
+            <!-- 二選一選項區：兩張卡片會被 app.js 填入食物圖片、名稱與分類。 -->
+            <div id="choiceArea" class="choice-grid">
+                <button class="choice-card" type="button" data-choice="0">
+                    <span class="image-wrap">
+                        <img class="food-image" alt="">
+                        <span class="food-emoji"></span>
+                    </span>
+                    <span class="food-name"></span>
+                    <span class="food-tag"></span>
+                </button>
+                <button class="choice-card" type="button" data-choice="1">
+                    <span class="image-wrap">
+                        <img class="food-image" alt="">
+                        <span class="food-emoji"></span>
+                    </span>
+                    <span class="food-name"></span>
+                    <span class="food-tag"></span>
+                </button>
+            </div>
+
+            <!-- 冠軍結果區：一開始隱藏，最後只剩一個選項時由 app.js 顯示。 -->
+            <div id="winnerArea" class="winner hidden">
+                <span class="winner-image-wrap">
+                    <img id="winnerImage" class="winner-image" alt="">
+                    <span id="winnerEmoji" class="winner-emoji"></span>
+                </span>
+                <p class="label">今晚就決定是</p>
+                <h2 id="winnerName"></h2>
+                <p id="winnerTag"></p>
+            </div>
+
+            <!-- 操作按鈕：上一步會回到前一次選擇，重新開始會重新洗牌。 -->
+            <div class="actions">
+                <button id="undoButton" class="ghost-button" type="button">上一步</button>
+                <button id="restartButton" class="primary-button" type="button">重新開始</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // 晚餐選項資料：name 是名稱，tag 是分類，emoji 是圖片失敗時的備援圖示，image 是示意圖網址。
+        window.DINNER_OPTIONS = [
+            { name: "牛肉麵", tag: "熱湯系", emoji: "🍜", image: "https://loremflickr.com/900/650/beef%20noodle%20soup,food" },
+            { name: "滷肉飯", tag: "台式經典", emoji: "🍚", image: "https://loremflickr.com/900/650/braised%20pork%20rice,food" },
+            { name: "雞肉飯", tag: "台式經典", emoji: "🍗", image: "https://loremflickr.com/900/650/chicken%20rice,food" },
+            { name: "排骨便當", tag: "便當系", emoji: "🍱", image: "https://loremflickr.com/900/650/pork%20chop%20bento,food" },
+            { name: "雞腿便當", tag: "便當系", emoji: "🍱", image: "https://loremflickr.com/900/650/chicken%20leg%20bento,food" },
+            { name: "鹽酥雞", tag: "宵夜系", emoji: "🍗", image: "https://loremflickr.com/900/650/taiwanese%20fried%20chicken,food" },
+            { name: "臭豆腐", tag: "夜市系", emoji: "🥢", image: "https://loremflickr.com/900/650/stinky%20tofu,food" },
+            { name: "蚵仔煎", tag: "夜市系", emoji: "🍳", image: "https://loremflickr.com/900/650/oyster%20omelette,food" },
+            { name: "水餃", tag: "簡單飽", emoji: "🥟", image: "https://loremflickr.com/900/650/dumplings,food" },
+            { name: "鍋貼", tag: "簡單飽", emoji: "🥟", image: "https://loremflickr.com/900/650/potstickers,food" },
+            { name: "炒飯", tag: "快炒系", emoji: "🍛", image: "https://loremflickr.com/900/650/fried%20rice,food" },
+            { name: "炒麵", tag: "快炒系", emoji: "🍝", image: "https://loremflickr.com/900/650/fried%20noodles,food" },
+            { name: "咖哩飯", tag: "濃郁系", emoji: "🍛", image: "https://loremflickr.com/900/650/curry%20rice,food" },
+            { name: "日式豬排飯", tag: "日式", emoji: "🍱", image: "https://loremflickr.com/900/650/tonkatsu%20rice,food" },
+            { name: "壽司", tag: "日式", emoji: "🍣", image: "https://loremflickr.com/900/650/sushi,food" },
+            { name: "拉麵", tag: "日式", emoji: "🍜", image: "https://loremflickr.com/900/650/ramen,food" },
+            { name: "烏龍麵", tag: "日式", emoji: "🍜", image: "https://loremflickr.com/900/650/udon%20noodles,food" },
+            { name: "丼飯", tag: "日式", emoji: "🍚", image: "https://loremflickr.com/900/650/donburi%20rice%20bowl,food" },
+            { name: "韓式拌飯", tag: "韓式", emoji: "🥘", image: "https://loremflickr.com/900/650/bibimbap,food" },
+            { name: "韓式炸雞", tag: "韓式", emoji: "🍗", image: "https://loremflickr.com/900/650/korean%20fried%20chicken,food" },
+            { name: "部隊鍋", tag: "韓式", emoji: "🍲", image: "https://loremflickr.com/900/650/budae%20jjigae,food" },
+            { name: "泡菜鍋", tag: "韓式", emoji: "🍲", image: "https://loremflickr.com/900/650/kimchi%20stew,food" },
+            { name: "石頭火鍋", tag: "火鍋系", emoji: "🍲", image: "https://loremflickr.com/900/650/hot%20pot,food" },
+            { name: "麻辣鍋", tag: "火鍋系", emoji: "🌶️", image: "https://loremflickr.com/900/650/spicy%20hot%20pot,food" },
+            { name: "涮涮鍋", tag: "火鍋系", emoji: "🍲", image: "https://loremflickr.com/900/650/shabu%20shabu,food" },
+            { name: "羊肉爐", tag: "暖身系", emoji: "🍲", image: "https://loremflickr.com/900/650/lamb%20hot%20pot,food" },
+            { name: "薑母鴨", tag: "暖身系", emoji: "🦆", image: "https://loremflickr.com/900/650/ginger%20duck%20soup,food" },
+            { name: "燒肉", tag: "聚餐系", emoji: "🥩", image: "https://loremflickr.com/900/650/yakiniku,food" },
+            { name: "牛排", tag: "西式", emoji: "🥩", image: "https://loremflickr.com/900/650/steak%20dinner,food" },
+            { name: "義大利麵", tag: "西式", emoji: "🍝", image: "https://loremflickr.com/900/650/pasta,food" },
+            { name: "披薩", tag: "西式", emoji: "🍕", image: "https://loremflickr.com/900/650/pizza,food" },
+            { name: "漢堡", tag: "西式", emoji: "🍔", image: "https://loremflickr.com/900/650/burger,food" },
+            { name: "炸雞", tag: "速食", emoji: "🍗", image: "https://loremflickr.com/900/650/fried%20chicken,food" },
+            { name: "熱狗堡", tag: "速食", emoji: "🌭", image: "https://loremflickr.com/900/650/hot%20dog,food" },
+            { name: "墨西哥捲餅", tag: "異國", emoji: "🌯", image: "https://loremflickr.com/900/650/burrito,food" },
+            { name: "塔可", tag: "異國", emoji: "🌮", image: "https://loremflickr.com/900/650/taco,food" },
+            { name: "越南河粉", tag: "東南亞", emoji: "🍜", image: "https://loremflickr.com/900/650/pho%20noodle%20soup,food" },
+            { name: "打拋豬飯", tag: "泰式", emoji: "🌶️", image: "https://loremflickr.com/900/650/thai%20basil%20pork%20rice,food" },
+            { name: "綠咖哩", tag: "泰式", emoji: "🍛", image: "https://loremflickr.com/900/650/green%20curry,food" },
+            { name: "海南雞飯", tag: "南洋", emoji: "🍚", image: "https://loremflickr.com/900/650/hainanese%20chicken%20rice,food" },
+            { name: "肉骨茶", tag: "南洋", emoji: "🍲", image: "https://loremflickr.com/900/650/bak%20kut%20teh,food" },
+            { name: "沙威瑪", tag: "街頭小吃", emoji: "🥙", image: "https://loremflickr.com/900/650/shawarma,food" },
+            { name: "烤鴨飯", tag: "港式", emoji: "🍚", image: "https://loremflickr.com/900/650/roast%20duck%20rice,food" },
+            { name: "港式燒臘", tag: "港式", emoji: "🍱", image: "https://loremflickr.com/900/650/hong%20kong%20roast%20meat,food" },
+            { name: "粥", tag: "清爽系", emoji: "🥣", image: "https://loremflickr.com/900/650/rice%20porridge,food" },
+            { name: "湯麵", tag: "熱湯系", emoji: "🍜", image: "https://loremflickr.com/900/650/noodle%20soup,food" },
+            { name: "乾麵", tag: "麵食", emoji: "🍜", image: "https://loremflickr.com/900/650/dry%20noodles,food" },
+            { name: "米粉湯", tag: "台式湯品", emoji: "🍜", image: "https://loremflickr.com/900/650/rice%20noodle%20soup,food" },
+            { name: "鴨肉飯", tag: "台式經典", emoji: "🍚", image: "https://loremflickr.com/900/650/duck%20rice,food" },
+            { name: "虱目魚粥", tag: "台南感", emoji: "🥣", image: "https://loremflickr.com/900/650/milkfish%20porridge,food" },
+            { name: "海鮮粥", tag: "海味", emoji: "🦐", image: "https://loremflickr.com/900/650/seafood%20porridge,food" },
+            { name: "烤魚", tag: "海味", emoji: "🐟", image: "https://loremflickr.com/900/650/grilled%20fish,food" },
+            { name: "生魚片丼", tag: "日式", emoji: "🍣", image: "https://loremflickr.com/900/650/sashimi%20rice%20bowl,food" },
+            { name: "關東煮", tag: "暖胃系", emoji: "🍢", image: "https://loremflickr.com/900/650/oden,food" },
+            { name: "鹽烤雞肉串", tag: "居酒屋", emoji: "🍢", image: "https://loremflickr.com/900/650/yakitori,food" },
+            { name: "蔬食便當", tag: "清爽系", emoji: "🥗", image: "https://loremflickr.com/900/650/vegetarian%20bento,food" },
+            { name: "沙拉碗", tag: "清爽系", emoji: "🥗", image: "https://loremflickr.com/900/650/salad%20bowl,food" },
+            { name: "地瓜餐盒", tag: "健康系", emoji: "🍠", image: "https://loremflickr.com/900/650/sweet%20potato%20meal,food" },
+            { name: "蛋包飯", tag: "日式洋食", emoji: "🍳", image: "https://loremflickr.com/900/650/omurice,food" },
+            { name: "焗烤飯", tag: "起司系", emoji: "🧀", image: "https://loremflickr.com/900/650/baked%20rice%20cheese,food" },
+            { name: "鐵板麵", tag: "夜市系", emoji: "🍝", image: "https://loremflickr.com/900/650/teppan%20noodles,food" },
+            { name: "蔥油餅加蛋", tag: "小吃系", emoji: "🥞", image: "https://loremflickr.com/900/650/scallion%20pancake%20egg,food" },
+            { name: "蘿蔔糕", tag: "小吃系", emoji: "🥢", image: "https://loremflickr.com/900/650/turnip%20cake,food" },
+            { name: "麻醬麵", tag: "麵食", emoji: "🍜", image: "https://loremflickr.com/900/650/sesame%20noodles,food" }
+        ];
+    </script>
+    <!-- 遊戲邏輯：洗牌、二選一、上一步、重新開始與畫面更新。 -->
+    <script src="app.js"></script>
+</body>
+</html>
